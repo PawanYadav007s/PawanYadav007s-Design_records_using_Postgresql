@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from helpers import export_all_data_to_excel, load_settings, get_base_path, log_to_history_excel, update_quotation_master_excel
 import pandas as pd
 from dotenv import load_dotenv
+from sqlalchemy import func
 
 # Load environment variables
 load_dotenv()
@@ -94,6 +95,7 @@ def add_po():
 
 @app.route('/view_pos')
 def view_pos():
+    page = request.args.get('page', 1, type=int)
     pos = PORecord.query.order_by(PORecord.po_date.desc()).all()
     return render_template('view_pos.html', pos=pos)
 
@@ -129,7 +131,8 @@ def delete_po(po_id):
 
 @app.route('/company_names')
 def company_names():
-    names = db.session.query(PORecord.client_company_name).distinct().all()
+    names = db.session.query(PORecord.client_company_name).distinct().order_by(PORecord.client_company_name).all()
+
     name_list = [name[0] for name in names if name[0]]  # Extract strings
     return {'companies': name_list}
 
@@ -333,30 +336,36 @@ def view_all():
     query = request.args.get('query', '').strip()
     if query:
         records = db.session.query(DesignRecord, PORecord).join(PORecord).filter(
-             (PORecord.po_number.ilike(f'%{query}%')) |
-        (PORecord.project_name.ilike(f'%{query}%')) |
-        (PORecord.client_company_name.ilike(f'%{query}%')) |
-        (PORecord.po_date.ilike(f'%{query}%')) |
-       (DesignRecord.design_release_date.ilike(f'%{query}%')) |
-        (DesignRecord.designer_name.ilike(f'%{query}%'))
-    ).order_by(DesignRecord.design_release_date.desc()).all()
+            (PORecord.po_number.ilike(f'%{query}%')) |
+            (PORecord.project_name.ilike(f'%{query}%')) |
+            (PORecord.client_company_name.ilike(f'%{query}%')) |
+            (func.cast(PORecord.po_date, db.String).ilike(f'%{query}%')) |
+            (func.cast(DesignRecord.design_release_date, db.String).ilike(f'%{query}%')) |
+            (DesignRecord.designer_name.ilike(f'%{query}%'))
+        ).order_by(DesignRecord.design_release_date.desc()).all()
     else:
         records = db.session.query(DesignRecord, PORecord).join(PORecord).order_by(DesignRecord.id.desc()).all()
+    
     return render_template('view_all.html', records=records, query=query)
 
 
 @app.route('/search')
 def search():
     """Search design records by multiple fields."""
-    query = request.args.get('query', '')
-    records = db.session.query(DesignRecord, PORecord).join(PORecord).filter(
-        (PORecord.po_number.ilike(f'%{query}%')) |
-        (PORecord.project_name.ilike(f'%{query}%')) |
-        (PORecord.client_company_name.ilike(f'%{query}%')) |
-        (PORecord.po_date.ilike(f'%{query}%')) |
-       (DesignRecord.design_release_date.ilike(f'%{query}%')) |
-        (DesignRecord.designer_name.ilike(f'%{query}%'))
-    ).order_by(DesignRecord.design_release_date.desc()).all() if query else []
+    query = request.args.get('query', '').strip()
+
+    if query:
+        records = db.session.query(DesignRecord, PORecord).join(PORecord).filter(
+            (PORecord.po_number.ilike(f'%{query}%')) |
+            (PORecord.project_name.ilike(f'%{query}%')) |
+            (PORecord.client_company_name.ilike(f'%{query}%')) |
+            (func.cast(PORecord.po_date, db.String).ilike(f'%{query}%')) |
+            (func.cast(DesignRecord.design_release_date, db.String).ilike(f'%{query}%')) |
+            (DesignRecord.designer_name.ilike(f'%{query}%'))
+        ).order_by(DesignRecord.design_release_date.desc()).all()
+    else:
+        records = []
+
     return render_template('search.html', records=records, query=query)
 
 @app.route('/edit/<int:record_id>', methods=['GET', 'POST'])
@@ -368,14 +377,13 @@ def edit_record(record_id):
 
     if request.method == 'POST':
         try:
-            # Validate and assign PO
             po_id = int(request.form['po_id'])
             po = PORecord.query.get(po_id)
             if not po:
                 flash('Invalid PO selected.', 'danger')
                 return redirect(url_for('edit_record', record_id=record_id))
-            record.po_id = po_id
 
+            record.po_id = po_id
             record.designer_name = request.form['designer_name']
             record.reference_design_location = request.form['reference_design_location']
             record.design_location = request.form['design_location']
@@ -394,47 +402,32 @@ def edit_record(record_id):
             flash(f"Error updating record: {e}", 'danger')
             return redirect(url_for('edit_record', record_id=record_id))
 
-    return render_template(
-        'edit_record.html',
-        record=record,
-        designers=designers,
-        po_list=po_list
-    )
-
-
-
+    return render_template('edit_record.html', record=record, designers=designers, po_list=po_list)
 
 
 @app.route('/delete/<int:record_id>')
 def delete_record(record_id):
     try:
-        # Get the design record to delete
         record = DesignRecord.query.get_or_404(record_id)
-        # Get the parent PO
         po = PORecord.query.get_or_404(record.po_id)
         quotation_number = po.quotation_number
 
-        # Optional: log deletion (your existing function)
         log_to_history_excel('delete', record, po)
 
-        # Delete the entire PO (will cascade to design records)
+        # Delete the entire PO (cascade to design records)
         db.session.delete(po)
-        db.session.commit()
 
-        # Update quotation status if needed
+        # Update quotation status if needed AFTER deletion in session but before commit
         if quotation_number != 'N/A':
             quotation = Quotation.query.filter_by(quotation_number=quotation_number).first()
             if quotation:
-                # Check if any other PO uses this quotation
-                po_using_quotation = PORecord.query.filter(
-                    PORecord.quotation_number == quotation_number
-                ).count()
-
+                po_using_quotation = PORecord.query.filter_by(quotation_number=quotation_number).count()
                 if po_using_quotation == 0:
                     quotation.status = 'pending'
                     db.session.add(quotation)
-                    db.session.commit()
                     flash(f"Quotation {quotation_number} marked as pending again.")
+
+        db.session.commit()  # One commit for all above
 
         export_all_data_to_excel()
         flash('PO and all related design records deleted successfully.', 'success')
@@ -444,7 +437,6 @@ def delete_record(record_id):
         flash(f"Error deleting record: {e}", 'danger')
 
     return redirect(url_for('view_all'))
-
 
 
 
