@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block title %}Pending Quotation Status{% endblock %}
+
+{% block content %}
+    <h2 class="mb-4 text-center">📋 Quotation Status</h2>
+
+    {% include 'status_section.html' %}
+
+    <div class="text-center mt-4">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">⬅ Back to Dashboard</a>
+    </div>
+{% endblock %}

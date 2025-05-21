@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Edit Design Record{% endblock %}
+
+{% block content %}
+<h2>Edit Design Record</h2>
+
+<form method="POST">
+
+    <!-- PO Selection (Required) -->
+    <div class="mb-3">
+        <label for="po_id" class="form-label">Select PO</label>
+        <select name="po_id" class="form-select" required>
+            <option value="" disabled>Select PO</option>
+            {% for po in po_list %}
+                <option value="{{ po.id }}" {% if po.id == record.po_id %}selected{% endif %}>
+                    {{ po.po_number }} — {{ po.project_name }} — {{ po.client_company_name }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Designer -->
+    <div class="mb-3">
+        <label for="designer_name" class="form-label">Designer Name</label>
+        <select name="designer_name" class="form-select" required>
+            <option value="" disabled>Select Designer</option>
+            {% for designer in designers %}
+                <option value="{{ designer.name }}" {% if designer.name == record.designer_name %}selected{% endif %}>
+                    {{ designer.name }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Reference Design Location -->
+    <div class="mb-3">
+        <label>Reference Design Location</label>
+        <input type="text" name="reference_design_location" value="{{ record.reference_design_location }}" class="form-control" required>
+    </div>
+
+    <!-- Design Location -->
+    <div class="mb-3">
+        <label>Design Location</label>
+        <input type="text" name="design_location" value="{{ record.design_location }}" class="form-control" required>
+    </div>
+
+    <!-- Design Release Date -->
+    <div class="mb-3">
+        <label>Design Release Date</label>
+        <input type="date" name="design_release_date" 
+            value="{{ record.design_release_date.isoformat() if record.design_release_date else '' }}" 
+            class="form-control" required>
+    </div>
+
+    <!-- Buttons -->
+    <button type="submit" class="btn btn-primary">Update</button>
+    <a href="{{ url_for('view_all') }}" class="btn btn-secondary">Cancel</a>
+
+</form>
+{% endblock %}

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Add Purchase Order</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}" />
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card shadow-lg">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">Add Purchase Order</h4>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST">
+                            <div class="mb-3">
+                                <label for="po_number" class="form-label">PO Number</label>
+                                <input type="text" name="po_number" id="po_number" class="form-control" required />
+                            </div>
+
+                            <!-- Select from Pending Quotation -->
+                            <div class="mb-3">
+                                <label for="quotation_id" class="form-label">Select Pending Quotation</label>
+                                <select name="quotation_id" id="quotation_id" class="form-control">
+                                    <option value="">-- Select Quotation --</option>
+                                    {% for q in quotations %}
+                                    <option value="{{ q.id }}">{{ q.quotation_number }} - {{ q.project_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="quotation_date_display" class="form-label">Quotation Date</label>
+                                <input type="date" id="quotation_date_display" class="form-control" readonly />
+                                <input type="hidden" name="quotation_date" id="quotation_date" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="project_name" class="form-label">Project Name</label>
+                                <input type="text" name="project_name" id="project_name" class="form-control" required readonly />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="po_date" class="form-label">PO Date</label>
+                                <input type="date" name="po_date" id="po_date" class="form-control" required />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="client_company_name" class="form-label">Company Name</label>
+                                <input
+                                    type="text"
+                                    name="client_company_name"
+                                    id="client_company_name"
+                                    class="form-control"
+                                    list="company-suggestions"
+                                    autocomplete="off"
+                                    required
+                                />
+                                <datalist id="company-suggestions"></datalist>
+                            </div>
+
+                            <div class="text-end">
+                                <button type="submit" class="btn btn-success">Add PO</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <a href="{{ url_for('view_pos') }}" class="btn btn-warning">View All Purchase Orders</a>
+                </div>
+
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">Back to Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Load existing company names into datalist
+            fetch("/company_names")
+                .then((response) => response.json())
+                .then((data) => {
+                    const datalist = document.getElementById("company-suggestions");
+                    data.companies.forEach((company) => {
+                        const option = document.createElement("option");
+                        option.value = company;
+                        datalist.appendChild(option);
+                    });
+                })
+                .catch((error) => console.error("Error loading company names:", error));
+
+            // Map quotations data for auto-fill
+            const quotationData = {
+                {% for q in quotations %}
+                "{{ q.id }}": {
+                    date: "{{ q.quotation_date.strftime('%Y-%m-%d') }}",
+                    project: "{{ q.project_name }}"
+                },
+                {% endfor %}
+            };
+
+            const quotationSelect = document.getElementById("quotation_id");
+            const quotationDateDisplay = document.getElementById("quotation_date_display");
+            const quotationDateHidden = document.getElementById("quotation_date");
+            const projectNameInput = document.getElementById("project_name");
+
+            quotationSelect.addEventListener("change", function () {
+                const selectedId = this.value;
+                if (quotationData[selectedId]) {
+                    quotationDateDisplay.value = quotationData[selectedId].date;
+                    quotationDateHidden.value = quotationData[selectedId].date;
+                    projectNameInput.value = quotationData[selectedId].project;
+                } else {
+                    quotationDateDisplay.value = "";
+                    quotationDateHidden.value = "";
+                    projectNameInput.value = "";
+                }
+            });
+
+            quotationDateDisplay.addEventListener("input", function () {
+                quotationDateHidden.value = this.value;
+            });
+        });
+    </script>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+</body>
+</html>

@@ -1,0 +1,112 @@
+<div class="card mt-5 shadow-sm">
+  <div class="card-header bg-warning text-dark fw-bold">
+    Pending Quotations
+  </div>
+  <div class="card-body">
+    <form method="GET" class="mb-3 d-flex" action="{{ url_for('dashboard') }}">
+      <input type="text" name="query" class="form-control me-2" placeholder="Search by Quotation No, Project or Details">
+      <button type="submit" class="btn btn-secondary">Search</button>
+    </form>
+        <a href="{{ url_for('export_pending_quotations_excel') }}" class="btn btn-success ms-3">
+        ⬇ Export Pending (Unused) Quotations
+        </a>
+
+    </div>
+
+
+
+
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>#</th>
+            <th>Quotation No</th>
+            <th>Date</th>
+            <th>Details</th>
+            <th>Project</th>
+            <th>Location</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for q in pending_quotations %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ q.quotation_number }}</td>
+            <td>{{ q.quotation_date.strftime('%Y-%m-%d') }}</td>
+            <td>{{ q.quotation_details }}</td>
+            <td>{{ q.project_name }}</td>
+            <td>
+              <div class="d-flex align-items-center">
+                <span class="me-2" style="max-width: 250px; overflow-x: auto; white-space: nowrap;">
+                  <a href="file:///{{ q.design_location | replace('\\', '/') }}" target="_blank" title="Open location">
+                    {{ q.design_location }}
+                  </a>
+                </span>
+                <button
+                  class="btn btn-sm btn-outline-secondary"
+                  onclick="copyToClipboard('{{ q.design_location | replace('\\', '\\\\') | replace('\'', '\\\'') }}')"
+                  title="Copy path to clipboard"
+                >
+                  📋
+                </button>
+              </div>
+            </td>
+            <td><span class="badge bg-warning text-dark">{{ q.status }}</span></td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="7" class="text-center text-muted">No pending quotations found.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Toast element (required for showing toast notifications) -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+  <div id="copyToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body">
+        Path copied to clipboard!
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Load Bootstrap JS first -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var copyToastElement = document.getElementById('copyToast');
+  var copyToast = copyToastElement ? new bootstrap.Toast(copyToastElement) : null;
+
+  window.copyToClipboard = function(text) {
+    const tempInput = document.createElement('textarea');
+    tempInput.value = text;
+    tempInput.style.position = 'fixed';
+    tempInput.style.left = '-9999px';
+    document.body.appendChild(tempInput);
+    tempInput.select();
+
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        if (copyToast) copyToast.show();
+        else alert('Path copied to clipboard!');
+      } else {
+        alert('Failed to copy path.');
+      }
+    } catch (err) {
+      alert('Browser blocked copy operation: ' + err);
+    }
+
+    document.body.removeChild(tempInput);
+  };
+});
+</script>
