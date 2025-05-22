@@ -49,8 +49,8 @@ def add_po():
             quotation_id = request.form.get('quotation_id')
             po_number = request.form['po_number']
             po_date = datetime.strptime(request.form['po_date'], '%Y-%m-%d').date()
-            client_company_name = request.form['client_company_name']
-            project_name = request.form['project_name']
+            client_company_name = request.form['client_company_name'].upper()
+            project_name = request.form['project_name'].upper()
 
             if quotation_id:
                 quotation = Quotation.query.get(int(quotation_id))
@@ -96,8 +96,10 @@ def add_po():
 @app.route('/view_pos')
 def view_pos():
     page = request.args.get('page', 1, type=int)
-    pos = PORecord.query.order_by(PORecord.po_date.desc()).all()
-    return render_template('view_pos.html', pos=pos)
+    pagination = PORecord.query.order_by(PORecord.po_date.desc()).paginate(page=page, per_page=10)
+    pos = pagination.items
+    return render_template('view_pos.html', pos=pos, pagination=pagination)
+
 
 
 
@@ -194,22 +196,21 @@ def add_form():
 
 
 
-
-
-
 @app.route('/add_quotation', methods=['GET', 'POST'])
 def add_quotation():
     error_msg = None
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
 
     if request.method == 'POST':
-        quotation_id = request.form.get('quotation_id')  # For edit
+        quotation_id = request.form.get('quotation_id')
         quotation_number = request.form['quotation_number']
         quotation_date = datetime.strptime(request.form['quotation_date'], '%Y-%m-%d').date()
-        quotation_details = request.form['quotation_details']
-        project_name = request.form['project_name']
+        quotation_details = request.form['quotation_details'].upper()
+        project_name = request.form['project_name'].upper()
         design_location = request.form.get('design_location') or "N/A"
 
-        if quotation_id:  # Update existing
+        if quotation_id:
             quotation = Quotation.query.get(int(quotation_id))
             if quotation:
                 if quotation.quotation_number != quotation_number:
@@ -223,8 +224,7 @@ def add_quotation():
                     quotation.project_name = project_name
                     quotation.design_location = design_location
                     flash('Quotation updated successfully!', 'success')
-
-        else:  # Add new
+        else:
             existing = Quotation.query.filter_by(quotation_number=quotation_number).first()
             if existing:
                 error_msg = f"Quotation Number '{quotation_number}' already exists. Please use a unique number."
@@ -240,14 +240,15 @@ def add_quotation():
                 flash('Quotation added successfully!', 'success')
 
         if error_msg:
-            quotations = Quotation.query.order_by(Quotation.quotation_date.desc()).all()
-            return render_template('add_quotation.html', quotations=quotations, error_msg=error_msg)
+            pagination = Quotation.query.order_by(Quotation.quotation_date.desc()).paginate(page=page, per_page=per_page)
+            return render_template('add_quotation.html', pagination=pagination, error_msg=error_msg)
 
         db.session.commit()
         return redirect(url_for('add_quotation'))
 
-    quotations = Quotation.query.order_by(Quotation.quotation_date.desc()).all()
-    return render_template('add_quotation.html', quotations=quotations)
+    pagination = Quotation.query.order_by(Quotation.quotation_date.desc()).paginate(page=page, per_page=per_page)
+    return render_template('add_quotation.html', pagination=pagination)
+
 
 
 
@@ -282,8 +283,9 @@ def manage_quotations():
 
 @app.route('/quotation_list')
 def quotation_list():
-    quotations = Quotation.query.order_by(Quotation.quotation_date.desc()).all()
-    return render_template('quotation_list.html', quotations=quotations)
+    page = request.args.get('page', 1, type=int)
+    pagination = Quotation.query.order_by(Quotation.quotation_date.desc()).paginate(page=page, per_page=10)
+    return render_template('quotation_list.html', pagination=pagination)
 
 @app.route('/delete_quotation/<int:quotation_id>', methods=['POST'])
 def delete_quotation(quotation_id):
@@ -333,20 +335,26 @@ def edit_designer(designer_id):
 
 @app.route('/view_all')
 def view_all():
+    page = request.args.get('page', 1, type=int)
     query = request.args.get('query', '').strip()
+
+    per_page = 10  # Items per page
+
+    base_query = db.session.query(DesignRecord, PORecord).join(PORecord)
+
     if query:
-        records = db.session.query(DesignRecord, PORecord).join(PORecord).filter(
+        base_query = base_query.filter(
             (PORecord.po_number.ilike(f'%{query}%')) |
             (PORecord.project_name.ilike(f'%{query}%')) |
             (PORecord.client_company_name.ilike(f'%{query}%')) |
             (func.cast(PORecord.po_date, db.String).ilike(f'%{query}%')) |
             (func.cast(DesignRecord.design_release_date, db.String).ilike(f'%{query}%')) |
             (DesignRecord.designer_name.ilike(f'%{query}%'))
-        ).order_by(DesignRecord.design_release_date.desc()).all()
-    else:
-        records = db.session.query(DesignRecord, PORecord).join(PORecord).order_by(DesignRecord.id.desc()).all()
-    
-    return render_template('view_all.html', records=records, query=query)
+        )
+
+    pagination = base_query.order_by(DesignRecord.design_release_date.desc()).paginate(page=page, per_page=per_page)
+    return render_template('view_all.html', pagination=pagination, query=query)
+
 
 
 @app.route('/search')

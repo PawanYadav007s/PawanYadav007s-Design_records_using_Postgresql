@@ -1,4 +1,3 @@
-<!-- add_quotation.html -->
 {% extends 'base.html' %}
 {% block content %}
 <div class="container mt-5">
@@ -46,16 +45,16 @@
             </tr>
         </thead>
         <tbody>
-            {% for q in quotations %}
+            {% for q in pagination.items %}
             <tr>
-                <td>{{ loop.index }}</td>
+                <td>{{ loop.index + (pagination.page - 1) * pagination.per_page }}</td>
                 <td>{{ q.quotation_number }}</td>
-                <td>{{ q.quotation_date }}</td>
+                <td>{{ q.quotation_date.strftime('%Y-%m-%d') }}</td>
                 <td>{{ q.project_name }}</td>
                 <td>{{ q.quotation_details }}</td>
                 <td class="d-flex gap-2">
                     <button class="btn btn-sm btn-primary"
-                        onclick="editQuotation({{ q.id }}, '{{ q.quotation_number }}', '{{ q.quotation_date }}', '{{ q.project_name }}', '{{ q.quotation_details }}')">
+                        onclick="editQuotation({{ q.id }}, '{{ q.quotation_number }}', '{{ q.quotation_date.strftime('%Y-%m-%d') }}', '{{ q.project_name }}', '{{ q.quotation_details }}')">
                         Edit
                     </button>
                     <form method="POST" action="{{ url_for('delete_quotation', quotation_id=q.id) }}" onsubmit="return confirm('Are you sure you want to delete this quotation?');">
@@ -68,6 +67,40 @@
             {% endfor %}
         </tbody>
     </table>
+
+    <!-- Pagination Controls -->
+    <nav aria-label="Quotation pagination">
+      <ul class="pagination justify-content-center mt-4">
+        {% if pagination.has_prev %}
+        <li class="page-item">
+          <a class="page-link" href="{{ url_for('add_quotation', page=pagination.prev_num) }}">Previous</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">Previous</span></li>
+        {% endif %}
+
+        {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+          {% if p %}
+            {% if p == pagination.page %}
+            <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+            {% else %}
+            <li class="page-item"><a class="page-link" href="{{ url_for('add_quotation', page=p) }}">{{ p }}</a></li>
+            {% endif %}
+          {% else %}
+          <li class="page-item disabled"><span class="page-link">…</span></li>
+          {% endif %}
+        {% endfor %}
+
+        {% if pagination.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="{{ url_for('add_quotation', page=pagination.next_num) }}">Next</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">Next</span></li>
+        {% endif %}
+      </ul>
+    </nav>
+
 </div>
 
 <div class="text-center mt-3">
