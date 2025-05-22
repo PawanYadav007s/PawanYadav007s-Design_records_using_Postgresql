@@ -299,7 +299,7 @@ def delete_quotation(quotation_id):
 @app.route('/designers', methods=['GET', 'POST'])
 def manage_designers():
     if request.method == 'POST':
-        name = request.form['designer_name'].strip()
+        name = request.form['designer_name'].strip().upper()
         if name:
             existing = Designer.query.filter_by(name=name).first()
             if not existing:
