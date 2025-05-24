@@ -9,7 +9,7 @@ class PORecord(db.Model):
     po_number = db.Column(db.String(50), unique=True, nullable=False)
     
     quotation_number = db.Column(db.String(50), nullable=True)
-    po_date = db.Column(db.Date, nullable=False)
+    po_date = db.Column(db.Date, nullable=False) 
     client_company_name = db.Column(db.String(100), nullable=False)
     project_name = db.Column(db.String(100), nullable=False)
     design_status = db.Column(db.String(50), default='pending')  # Added design_status to PORecord
